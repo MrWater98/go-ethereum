@@ -86,6 +86,7 @@ func (ethash *Ethash) Seal(chain consensus.ChainHeaderReader, block *types.Block
 	}
 	// Push new work to remote sealer
 	if ethash.remote != nil {
+		log.Info("Remote Mode")
 		ethash.remote.workCh <- &sealTask{block: block, results: results}
 	}
 	var (
@@ -104,17 +105,20 @@ func (ethash *Ethash) Seal(chain consensus.ChainHeaderReader, block *types.Block
 		var result *types.Block
 		select {
 		case <-stop:
+			log.Info("Stop")
 			// Outside abort, stop all miner threads
 			close(abort)
 		case result = <-locals:
 			// One of the threads found a block, abort all others
 			select {
 			case results <- result:
+				log.Info("Assign the result value")
 			default:
 				ethash.config.Log.Warn("Sealing result is not read by miner", "mode", "local", "sealhash", ethash.SealHash(block.Header()))
 			}
 			close(abort)
 		case <-ethash.update:
+			log.Info("Request or Restart")
 			// Thread count was changed on user request, restart
 			close(abort)
 			if err := ethash.Seal(chain, block, results, stop); err != nil {
